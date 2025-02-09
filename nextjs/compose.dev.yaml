@@ -1,0 +1,19 @@
+services:
+  nextjs:
+    build:
+      context: .
+      target: dev
+      dockerfile: Dockerfile.dev
+    develop:
+      watch:
+        - path: .
+          action: sync
+          target: /usr/src/nextjs
+          ignore:
+            - node_modules
+        - path: ./package.json
+          action: rebuild
+    container_name: nextjs
+    restart: unless-stopped
+    ports:
+      - 3000:3000
