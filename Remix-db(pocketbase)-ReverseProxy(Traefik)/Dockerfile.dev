@@ -1,0 +1,28 @@
+######## pocketbase #########
+FROM alpine:3 AS pb_builder
+
+ARG PB_VERSION=0.22.27      # 需要指定 PB 版本(如果未指定，默认使用 0.22.27)
+ARG ARCH=arm64              # 架构为 arm64(M 芯片 Mac) 或 amd64(x86_64)
+
+ADD https://github.com/pocketbase/pocketbase/releases/download/v${PB_VERSION}/pocketbase_${PB_VERSION}_linux_${ARCH}.zip /tmp/pb.zip
+RUN unzip /tmp/pb.zip -d /pb/
+
+FROM alpine:3 AS pb_dev
+COPY --from=pb_builder /pb/pocketbase /pb/pocketbase
+RUN apk add --no-cache ca-certificates
+EXPOSE 8090
+CMD ["/pb/pocketbase", "serve", "--http=0.0.0.0:8090"]
+
+
+
+######## remix #########
+FROM node:20.5.1-bookworm-slim AS base
+WORKDIR /remix
+
+FROM base AS remix_dev
+COPY remix/package*.json .
+RUN --mount=type=cache,id=npm,target=/root/.npm \
+    npm ci --include=dev
+COPY remix/. ./
+EXPOSE 5173
+CMD ["npm", "run", "dev"]
