@@ -1,0 +1,54 @@
+services:
+  proxy:
+    image: traefik:v3.2.1
+    container_name: traefik
+    command:
+      - --providers.docker
+    ports:
+      - 80:80
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  
+  frontend:
+    build:
+      context: .
+      target: frontend_dev
+      dockerfile: Dockerfile.dev
+    develop:
+      watch:
+        - path: ./frontend/
+          action: sync
+          target: /usr/src/nextjs
+          ignore:
+            - node_modules
+        - path: ./frontend/package.json
+          action: rebuild
+    container_name: nextjs
+    restart: unless-stopped
+    ports:
+      - 3000:3000
+    labels:
+      - "traefik.http.routers.nextjs.rule=PathPrefix(`/`)"
+      - "traefik.http.services.nextjs.loadbalancer.server.port=3000"
+
+  backend:
+    build:
+      context: .
+      target: backend_dev
+      dockerfile: Dockerfile.dev
+    develop:
+      watch:
+        - path: ./backend/
+          action: sync
+          target: /usr/src/bun
+          ignore:
+            - node_modules
+        - path: ./backend/package.json
+          action: rebuild
+    container_name: bun
+    restart: unless-stopped
+    ports:
+      - 4000:4000
+    labels:
+      - "traefik.http.routers.bun.rule=PathPrefix(`/api/`)"
+      - "traefik.http.services.bun.loadbalancer.server.port=4000"
