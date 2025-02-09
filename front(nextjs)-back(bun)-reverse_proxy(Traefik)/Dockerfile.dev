@@ -1,0 +1,46 @@
+######## Frontend(Next.js) ########
+FROM node:23.7-bookworm-slim AS frontend_base
+WORKDIR /usr/src/nextjs
+
+# Install dependencies into a temp directory to leverage caching
+FROM frontend_base AS frontend_install
+RUN mkdir -p /temp/dev
+COPY frontend/package*.json /temp/dev/
+RUN cd /temp/dev && npm ci --include=dev
+
+# Copy node_modules from temp directory, then copy the rest of the project
+FROM frontend_base AS frontend_dev
+COPY --from=frontend_install /temp/dev/node_modules ./node_modules
+COPY frontend/. .
+
+# Expose the port and start the Next.js development server
+EXPOSE 3000
+CMD ["npm", "run", "dev"]
+
+
+######## Backend(Bun) ########
+# https://bun.sh/guides/ecosystem/docker
+
+# use the official Bun image
+# see all versions at https://hub.docker.com/r/oven/bun/tags
+FROM oven/bun:1.2.2 AS backend_base
+WORKDIR /usr/src/bun
+
+# install dependencies into temp directory
+# this will cache them and speed up future builds
+FROM backend_base AS backend_install
+RUN mkdir -p /temp/dev
+COPY backend/package.json backend/bun.lock /temp/dev/
+RUN cd /temp/dev && bun install --frozen-lockfile
+
+# copy node_modules from temp directory
+# then copy all (non-ignored) project files into the image
+FROM backend_base AS backend_dev
+COPY --from=backend_install /temp/dev/node_modules node_modules
+COPY backend/. .
+
+# run the app
+ENV NODE_ENV=development
+ENV PORT=4000
+EXPOSE 4000
+ENTRYPOINT [ "bun", "--watch", "index.ts" ]
